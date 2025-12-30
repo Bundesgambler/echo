@@ -1,0 +1,43 @@
+:root {
+  --bg-deep: #050b18;
+  --bg-panel: #0f172a;
+  --bg-header: rgba(10, 17, 34, 0.9);
+  --border: rgba(255, 255, 255, 0.05);
+  --text-main: #f1f5f9;
+  --text-dim: #64748b;
+  --accent: #dc2626;
+}
+
+[data-theme='light'] {
+  --bg-deep: #f8fafc;
+  --bg-panel: #ffffff;
+  --bg-header: rgba(255, 255, 255, 0.9);
+  --border: rgba(0, 0, 0, 0.05);
+  --text-main: #0f172a;
+  --text-dim: #64748b;
+  --accent: #dc2626;
+}
+
+body {
+  background-color: var(--bg-deep);
+  color: var(--text-main);
+  transition: background-color 0.5s ease, color 0.5s ease;
+  font-family: 'Inter', sans-serif;
+}
+
+.scrollbar-custom::-webkit-scrollbar {
+  width: 5px;
+}
+
+.scrollbar-custom::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scrollbar-custom::-webkit-scrollbar-thumb {
+  background: #1e293b;
+  border-radius: 10px;
+}
+
+.scrollbar-custom::-webkit-scrollbar-thumb:hover {
+  background: #dc2626;
+}

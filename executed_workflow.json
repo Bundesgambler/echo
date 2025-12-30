@@ -1,0 +1,401 @@
+{
+  "name": "AfD Visual Generator with Image Option",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "5001781d-c9be-4ef7-8635-4d241a6e8a9a",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        5696,
+        3408
+      ],
+      "id": "5fbbe2f9-d384-4104-8db1-eb5fac11ba98",
+      "name": "Webhook",
+      "webhookId": "5001781d-c9be-4ef7-8635-4d241a6e8a9a"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ !!$json.body.customImage }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        5904,
+        3408
+      ],
+      "id": "0f9791ba-a420-41ad-a12d-e4bb2a093b91",
+      "name": "Check Image"
+    },
+    {
+      "parameters": {
+        "jsCode": "const sharp = require('sharp');\n\nconst body = items[0].json.body;\nconst chatInput = body.chatInput;\nconst backgroundImage = body.customImage;\n\nlet base64Data = backgroundImage;\nif (backgroundImage.includes('base64,')) {\n  base64Data = backgroundImage.split('base64,')[1];\n}\n\nconst inputBuffer = Buffer.from(base64Data, 'base64');\nconst resizedBuffer = await sharp(inputBuffer)\n  .resize(960, 1200, { fit: 'cover', position: 'center' })\n  .png()\n  .toBuffer();\n\nconst timestamp = Date.now();\nconst fileName = `news_image_${timestamp}.png`;\n\nreturn [{\n  json: {\n    success: true,\n    fileName: fileName,\n    chatInput: chatInput,\n    userProvided: true\n  },\n  binary: {\n    data: {\n      data: resizedBuffer.toString('base64'),\n      mimeType: 'image/png',\n      fileExtension: 'png',\n      fileName: fileName\n    }\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        6160,
+        3216
+      ],
+      "id": "48ea715d-4db2-4d5a-9e5a-47580fa70910",
+      "name": "Resize User Image"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.body.chatInput }}",
+        "options": {
+          "systemMessage": "{\n  \"name\": \"AfD_Style_Visual_Generator\",\n  \"description\": \"Generates viral visual assets. Fixes: 'Gray Block' artifact by enforcing continuous environmental details with heavy vignetting instead of solid overlays.\",\n  \"version\": \"15.0-NO-GRAY-BLOCKS\",\n  \"config\": {\n    \"output_language\": \"de-DE\",\n    \"target_style\": {\n      \"persona\": \"Boulevard-Analyst\",\n      \"tone\": \"Scandal-focused, Direct, Grammatically Complete\"\n    },\n    \"image_model\": \"Gemini 2.5 Flash Image / Imagen 3\"\n  },\n  \"background_knowledge\": {\n    \"usage_rules\": {\n      \"topic_fidelity\": \"Strict adherence to input topic.\",\n      \"bundesregierung\": {\n        \"kanzler\": \"Friedrich Merz (CDU)\",\n        \"status\": \"Schwarz-Rot\"\n      }\n    }\n  },\n  \"instructions\": {\n    \"critical_protocol\": {\n      \"SYSTEM_MODE\": \"JSON_GENERATION\",\n      \"RULE\": \"Output must be valid JSON.\"\n    },\n    \"pre_processing\": {\n      \"entity_check\": {\n        \"instruction\": \"Analyze Names. VIP -> Use Name. Bystander -> Ignore.\",\n        \"decision\": \"Prioritize VIP Name in Headline.\"\n      },\n      \"setting_analysis\": {\n        \"instruction\": \"Identify physical location (e.g., Taxi).\",\n        \"rule\": \"The setting dictates the entire background, including the floor/bottom.\"\n      }\n    },\n    \"generation_steps\": {\n      \"step_1_image_prompt\": {\n        \"instruction\": \"Generate a detailed natural language description in English. CRUCIAL: FULL FRAME COMPOSITION.\",\n        \"structure\": \"Sentence 1: Describe the main subject and the specific setting (e.g., 'A damaged taxi seat with a taximeter in the background'). Sentence 2: Position the subject in the upper third. Sentence 3: Describe the bottom two-thirds as **CONTINUATION OF THE ENVIRONMENT**. The floor/seat/ground must extend to the bottom edge. Do NOT ask for 'smooth gradients' or 'neutral backgrounds'. Sentence 4: Apply lighting/focus: 'Heavy dark vignetting at the bottom, shallow depth of field, moody cinematic lighting.'\",\n        \"forbidden_phrases\": \"neutral background, solid color, smooth texture, gray gradient, blank space.\",\n        \"content_rule\": \"The image must look like a complete photograph. The bottom is just darker (shadow), NOT blocked out.\"\n      },\n      \"step_2_subline\": {\n        \"role\": \"The Ticker (Fact)\",\n        \"grammar\": \"Complete sentence or journalistic ellipsis.\",\n        \"length\": \"Max 6 words. End with colon (:).\",\n        \"content\": \"Contextualize. NO WORD REPETITION from headline.\",\n        \"example\": \"Künstler randaliert in Fahrzeug:\"\n      },\n      \"step_3_headline\": {\n        \"role\": \"The Punch (Verdict)\",\n        \"formatting\": \"ALL CAPS. 2 to 3 lines separated by \\\\n. Max 6 words total. End with !.\",\n        \"redundancy_check\": \"Do not repeat nouns/locations from subline.\",\n        \"syntax_enforcement\": {\n          \"RULE\": \"Every Headline MUST contain a VERB or a PREPOSITION.\",\n          \"FORBIDDEN\": \"[Noun] [Article] [Adjective] [Noun].\",\n          \"REQUIRED_PATTERNS\": [\n            \"[Subject] [Verb] [Object/Place]\",\n            \"[Noun] [Preposition] [Noun/Place]\"\n          ]\n        },\n        \"splitting_logic\": \"Logical breath pause.\",\n        \"no_hyphens\": \"Compound words together.\"\n      }\n    }\n  },\n  \"output\": {\n    \"format\": \"JSON\",\n    \"schema\": {\n      \"imagePrompt\": \"string\",\n      \"subline\": \"string\",\n      \"headline\": \"string\"\n    },\n    \"strict_constraints\": [\n      \"VALID_JSON\",\n      \"NO_GRAY_BLOCKS_IN_IMAGE\",\n      \"BOTTOM_IS_ENVIRONMENT_IN_SHADOW\",\n      \"HEADLINE_MUST_HAVE_VERB_OR_PREPOSITION\"\n    ]\n  }\n}"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3,
+      "position": [
+        6112,
+        3616
+      ],
+      "id": "4f885069-59e2-4ba1-85e6-fb1e532d0b16",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-3-flash-preview",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        6160,
+        3840
+      ],
+      "id": "b3eeae4a-367e-4416-b24a-465343a3701e",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "PuuLZorZFogUlMjE",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.chatInput }}",
+        "options": {
+          "systemMessage": "{\n  \"name\": \"AfD_Style_Text_Generator\",\n  \"description\": \"Generates only subline and headline for user-provided images.\",\n  \"config\": {\n    \"output_language\": \"de-DE\",\n    \"target_style\": {\n      \"persona\": \"Boulevard-Analyst\",\n      \"tone\": \"Scandal-focused, Direct, Grammatically Complete\"\n    }\n  },\n  \"background_knowledge\": {\n    \"usage_rules\": {\n      \"topic_fidelity\": \"Strict adherence to input topic.\",\n      \"bundesregierung\": {\n        \"kanzler\": \"Friedrich Merz (CDU)\",\n        \"status\": \"Schwarz-Rot\"\n      }\n    }\n  },\n  \"instructions\": {\n    \"critical_protocol\": {\n      \"SYSTEM_MODE\": \"JSON_GENERATION\",\n      \"RULE\": \"Output must be valid JSON.\"\n    },\n    \"generation_steps\": {\n      \"step_1_subline\": {\n        \"role\": \"The Ticker (Fact)\",\n        \"grammar\": \"Complete sentence or journalistic ellipsis.\",\n        \"length\": \"Max 6 words. End with colon (:).\",\n        \"content\": \"Contextualize. NO WORD REPETITION from headline.\",\n        \"example\": \"Künstler randaliert in Fahrzeug:\"\n      },\n      \"step_2_headline\": {\n        \"role\": \"The Punch (Verdict)\",\n        \"formatting\": \"ALL CAPS. 2 to 3 lines separated by \\\\n. Max 6 words total. End with !.\",\n        \"redundancy_check\": \"Do not repeat nouns/locations from subline.\",\n        \"syntax_enforcement\": {\n          \"RULE\": \"Every Headline MUST contain a VERB or a PREPOSITION.\",\n          \"FORBIDDEN\": \"[Noun] [Article] [Adjective] [Noun].\",\n          \"REQUIRED_PATTERNS\": [\n            \"[Subject] [Verb] [Object/Place]\",\n            \"[Noun] [Preposition] [Noun/Place]\"\n          ]\n        },\n        \"splitting_logic\": \"Logical breath pause.\",\n        \"no_hyphens\": \"Compound words together.\"\n      }\n    }\n  },\n  \"output\": {\n    \"format\": \"JSON\",\n    \"schema\": {\n      \"subline\": \"string\",\n      \"headline\": \"string\"\n    }\n  }\n}"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3,
+      "position": [
+        6416,
+        3216
+      ],
+      "id": "853451b5-a9db-4cd0-8990-42da42b66f0e",
+      "name": "AI Agent Text Only"
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-3-flash-preview",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        6448,
+        2992
+      ],
+      "id": "901cd19b-0721-4863-a017-2eb2c1b73a35",
+      "name": "Google Gemini Chat Model Text",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "PuuLZorZFogUlMjE",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const agentOutput = items[0].json.output;\n\nconst resizeNode = $('Resize User Image').item;\nconst binaryData = resizeNode.binary;\nconst fileName = resizeNode.json.fileName;\n\nlet jsonStr = agentOutput;\nconst jsonMatch = agentOutput.match(/```json\\n?([\\s\\S]*?)\\n?```/);\nif (jsonMatch) {\n  jsonStr = jsonMatch[1].trim();\n} else {\n  const rawMatch = agentOutput.match(/\\{[\\s\\S]*\\}/);\n  if (rawMatch) {\n    jsonStr = rawMatch[0];\n  }\n}\n\nconst parsed = JSON.parse(jsonStr);\n\nreturn [{\n  json: {\n    subline: parsed.subline,\n    headline: parsed.headline,\n    fileName: fileName\n  },\n  binary: binaryData\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        6784,
+        3216
+      ],
+      "id": "5dcc15db-ca0c-44fc-bad7-3873b4ca5a5b",
+      "name": "Parse Text Only"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse AI Agent JSON output\nconst agentOutput = items[0].json.output;\n\n// Extract JSON from response (handle markdown code blocks)\nlet jsonStr = agentOutput;\nconst jsonMatch = agentOutput.match(/```json\\n?([\\s\\S]*?)\\n?```/);\nif (jsonMatch) {\n  jsonStr = jsonMatch[1].trim();\n} else {\n  // Try to find raw JSON\n  const rawMatch = agentOutput.match(/\\{[\\s\\S]*\\}/);\n  if (rawMatch) {\n    jsonStr = rawMatch[0];\n  }\n}\n\nconst parsed = JSON.parse(jsonStr);\n\nreturn [{\n  json: {\n    imagePrompt: parsed.imagePrompt,\n    subline: parsed.subline,\n    headline: parsed.headline\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        6384,
+        3616
+      ],
+      "id": "e2b739cb-816d-4932-99a5-ded844bcb3d6",
+      "name": "Parse AI Output"
+    },
+    {
+      "parameters": {
+        "model": "gemini-2.5-flash-image",
+        "messages": {
+          "values": [
+            {
+              "content": "={{ $json.imagePrompt }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "@cometapi-dev/n8n-nodes-cometapi.cometApi",
+      "typeVersion": 1,
+      "position": [
+        6560,
+        3616
+      ],
+      "id": "3d9f77d7-efa1-4f6b-b60c-38398f8faed2",
+      "name": "CometAPI",
+      "credentials": {
+        "cometApi": {
+          "id": "7MBy3HxloEQJEgl2",
+          "name": "CometAPI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract Gemini base64\nconst content = items[0].json.choices[0].message.content;\n\n// Get headline and subline from Parse AI Output node\nconst headline = $('Parse AI Output').item.json.headline;\nconst subline = $('Parse AI Output').item.json.subline;\n\nconst regex = /data:image\\/[a-zA-Z]+;base64,([a-zA-Z0-9+/=\\r\\n]+)/;\nconst match = content.match(regex);\n\nif (!match || !match[1]) {\n  throw new Error('No valid Base64 image found in CometAPI output.');\n}\n\nconst cleanBase64 = match[1].replace(/\\s/g, '');\n\nconst timestamp = Date.now();\nconst dynamicFileName = `news_image_${timestamp}.png`;\n\nreturn [{\n  json: {\n    success: true,\n    fileName: dynamicFileName,\n    headline: headline,\n    subline: subline\n  },\n  binary: {\n    data: {\n      data: cleanBase64,\n      mimeType: 'image/png',\n      fileExtension: 'png',\n      fileName: dynamicFileName\n    }\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        6784,
+        3616
+      ],
+      "id": "0a863f97-ddb0-4226-83de-29b5a27397b0",
+      "name": "Clean & Convert Base64"
+    },
+    {
+      "parameters": {
+        "jsCode": "const sharp = require('sharp');\nconst opentype = require('opentype.js');\n\n// --- 1. CONFIGURATION ---\nconst OUTPUT_WIDTH = 960;\nconst OUTPUT_HEIGHT = 1200;\nconst LOGO_URL = 'https://n8n.mariohau.de/images/logo_overlay.png';\n\nconst FONT_PATH = '/usr/share/fonts/truetype/barlow/BarlowCondensed-ExtraBoldItalic.ttf';\n\nconst SCREEN_PADDING = 50;\nconst BOTTOM_CLEARANCE = 210;\nconst MAX_TEXT_WIDTH = OUTPUT_WIDTH - (SCREEN_PADDING * 2);\nconst BOX_PADDING = 8;\nconst BOX_RADIUS = 10;\n\nconst HEADLINE_SIZE_MAX = 145;\nconst HEADLINE_SIZE_MIN = 60;\n\n// --- 2. INPUT HANDLING ---\nconst item = (items && items.length > 0) ? items[0] : {};\nconst json = item.json || {};\n\nconst sublineRaw = json.subline || 'BREAKING NEWS:';\nconst headlineRaw = json.headline || 'HEADLINE HERE';\n\nconst subline = sublineRaw.toUpperCase();\nconst headline = headlineRaw.toUpperCase().replace(/\\n/g, ' ');\n\n// --- 3. FONT LOADING & PRECISE MEASUREMENT ---\n\nlet font;\ntry {\n    font = opentype.loadSync(FONT_PATH);\n} catch (e) {\n    throw new Error(`Font nicht gefunden: ${FONT_PATH}. Bitte Pfad anpassen.`);\n}\n\nfunction getTextBoundingBox(text, fontSize) {\n    const path = font.getPath(text, 0, 0, fontSize);\n    return path.getBoundingBox();\n}\n\nfunction measureTextWidth(text, fontSize) {\n    const bbox = getTextBoundingBox(text, fontSize);\n    return bbox.x2 - bbox.x1;\n}\n\nfunction getReferenceBoundingBox(fontSize) {\n    const referenceText = \"ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789\";\n    return getTextBoundingBox(referenceText, fontSize);\n}\n\n// --- 4. LAYOUT ENGINE (HEADLINE) ---\n\nfunction calculateHeadlineLayout(text, maxWidth) {\n    let fontSize = HEADLINE_SIZE_MAX;\n    const words = text.split(' ');\n\n    while (fontSize >= HEADLINE_SIZE_MIN) {\n        const longestWordPx = Math.max(...words.map(w => measureTextWidth(w, fontSize)));\n        if (longestWordPx > maxWidth) {\n            fontSize -= 5;\n            continue;\n        }\n\n        const lines = wrapText(words, fontSize, maxWidth);\n\n        if (lines.length <= 3) return { fontSize, lines };\n        if (lines.length <= 4 && fontSize < 95) return { fontSize, lines };\n\n        fontSize -= 5;\n    }\n    return { fontSize: HEADLINE_SIZE_MIN, lines: wrapText(words, HEADLINE_SIZE_MIN, maxWidth) };\n}\n\nfunction wrapText(words, fontSize, maxWidth) {\n    let lines = [];\n    let currentLine = words[0];\n\n    for (let i = 1; i < words.length; i++) {\n        const word = words[i];\n        const projectedWidth = measureTextWidth(currentLine + \" \" + word, fontSize);\n\n        if (projectedWidth <= maxWidth) {\n            currentLine += \" \" + word;\n        } else {\n            lines.push(currentLine);\n            currentLine = word;\n        }\n    }\n    lines.push(currentLine);\n    return lines;\n}\n\nconst hlLayout = calculateHeadlineLayout(headline, MAX_TEXT_WIDTH);\nconst hlSize = hlLayout.fontSize;\nconst hlLines = hlLayout.lines;\n\n// --- 5. SUBLINE & DYNAMIC BOX CALCULATION ---\n\nlet slSize = 50;\n\nlet slBBox = getTextBoundingBox(subline, slSize);\nlet slTextWidthRaw = slBBox.x2 - slBBox.x1;\n\nif (slTextWidthRaw > MAX_TEXT_WIDTH) {\n    slSize = Math.floor(slSize * (MAX_TEXT_WIDTH / slTextWidthRaw));\n}\n\nslBBox = getTextBoundingBox(subline, slSize);\nconst refBBox = getReferenceBoundingBox(slSize);\n\nconst textWidth = slBBox.x2 - slBBox.x1;\nconst textHeight = refBBox.y2 - refBBox.y1;\nconst textOffsetX = slBBox.x1;\nconst textOffsetY = refBBox.y1;\n\nconst boxWidth = textWidth + (BOX_PADDING * 2);\nconst boxHeight = textHeight + (BOX_PADDING * 2);\n\n// --- 6. POSITIONING (FIXED: CONSISTENT SPACING) ---\n\nconst centerX = OUTPUT_WIDTH / 2;\nconst lineHeight = hlSize * 0.95;\n\nconst textAreaBottomLimit = OUTPUT_HEIGHT - BOTTOM_CLEARANCE;\n\nconst hlStartY = textAreaBottomLimit - (lineHeight * 0.5) - ((hlLines.length - 1) * lineHeight);\n\nconst boxCenterY = hlStartY - lineHeight;\nconst boxY = boxCenterY - (boxHeight / 2);\n\nconst boxX = centerX - (boxWidth / 2);\n\nconst textX = boxX + BOX_PADDING - textOffsetX;\nconst textY = boxY + BOX_PADDING - textOffsetY;\n\n// --- 7. SVG ASSEMBLY ---\n\nfunction escapeXml(text) {\n    return text\n        .replace(/&/g, '&amp;')\n        .replace(/</g, '&lt;')\n        .replace(/>/g, '&gt;')\n        .replace(/\"/g, '&quot;')\n        .replace(/'/g, '&apos;');\n}\n\nlet svgContent = '';\n\nsvgContent += `\n    <rect \n        x=\"${boxX}\" \n        y=\"${boxY}\" \n        width=\"${boxWidth}\" \n        height=\"${boxHeight}\" \n        fill=\"#E2001A\" \n        rx=\"${BOX_RADIUS}\" \n        ry=\"${BOX_RADIUS}\"\n    />\n`;\n\nsvgContent += `\n    <text \n        x=\"${textX}\" \n        y=\"${textY}\" \n        font-family=\"Barlow Condensed ExtraBold\" \n        font-weight=\"800\"\n        font-style=\"italic\"\n        font-size=\"${slSize}\" \n        fill=\"white\"\n    >${escapeXml(subline)}</text>\n`;\n\nhlLines.forEach((line, i) => {\n    const y = hlStartY + (i * lineHeight);\n    svgContent += `\n        <text \n            x=\"${centerX}\" \n            y=\"${y}\" \n            text-anchor=\"middle\" \n            dominant-baseline=\"central\" \n            font-family=\"Barlow Condensed ExtraBold\" \n            font-size=\"${hlSize}\" \n            font-style=\"italic\" \n            font-weight=\"800\" \n            fill=\"white\" \n            filter=\"url(#shadow)\"\n        >${escapeXml(line)}</text>\n    `;\n});\n\nconst finalSvg = `\n<svg width=\"${OUTPUT_WIDTH}\" height=\"${OUTPUT_HEIGHT}\" xmlns=\"http://www.w3.org/2000/svg\">\n  <defs>\n    <filter id=\"shadow\" x=\"-50%\" y=\"-50%\" width=\"200%\" height=\"200%\">\n      <feDropShadow dx=\"0\" dy=\"4\" stdDeviation=\"6\" flood-color=\"black\" flood-opacity=\"0.8\"/>\n    </filter>\n  </defs>\n  ${svgContent}\n</svg>\n`;\n\n// --- 8. PROCESSING ---\n\ntry {\n    const inputBuffer = await this.helpers.getBinaryDataBuffer(0, 'data');\n    const logoBuffer = await this.helpers.httpRequest({\n        method: 'GET',\n        url: LOGO_URL,\n        encoding: 'arraybuffer'\n    });\n\n    const finalBuffer = await sharp(inputBuffer)\n        .resize(OUTPUT_WIDTH, OUTPUT_HEIGHT, { fit: 'cover', position: 'center' })\n        .composite([\n            { input: Buffer.from(logoBuffer), top: 0, left: 0 },\n            { input: Buffer.from(finalSvg), top: 0, left: 0 }\n        ])\n        .png()\n        .toBuffer();\n\n    const fileName = (json.fileName || 'image.png').replace('news_image_', 'news_final_');\n\n    return {\n        json: {\n            ...json,\n            composed: true,\n            debug: {\n                bottomClearance: BOTTOM_CLEARANCE,\n                textAreaBottomLimit: textAreaBottomLimit,\n                headlineLines: hlLines.length,\n                headlineStartY: hlStartY,\n                lineHeight: lineHeight,\n                boxCenterY: boxCenterY\n            }\n        },\n        binary: {\n            data: {\n                data: finalBuffer.toString('base64'),\n                mimeType: 'image/png',\n                fileExtension: 'png',\n                fileName: fileName\n            }\n        }\n    };\n\n} catch (error) {\n    throw new Error(`Processing Error: ${error.message}`);\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        7024,
+        3408
+      ],
+      "id": "8a35134d-222f-455c-90bd-57008e92eeaa",
+      "name": "Compose with Sharp"
+    },
+    {
+      "parameters": {
+        "operation": "upload",
+        "path": "={{ $json.fileName }}"
+      },
+      "type": "n8n-nodes-base.ftp",
+      "typeVersion": 1,
+      "position": [
+        7232,
+        3248
+      ],
+      "id": "953871e9-4f63-4949-8cf8-11abc5f89d56",
+      "name": "FTP Upload",
+      "credentials": {
+        "ftp": {
+          "id": "UTqgkrvEUHGe7ZyT",
+          "name": "FTP account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "binary",
+        "responseDataSource": "set",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        7216,
+        3568
+      ],
+      "id": "8bf880b0-e089-438a-aa4a-35a1652ac73a",
+      "name": "Respond to Webhook"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Check Image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Image": {
+      "main": [
+        [
+          {
+            "node": "Resize User Image",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resize User Image": {
+      "main": [
+        [
+          {
+            "node": "AI Agent Text Only",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Parse AI Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent Text Only": {
+      "main": [
+        [
+          {
+            "node": "Parse Text Only",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model Text": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent Text Only",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Text Only": {
+      "main": [
+        [
+          {
+            "node": "Compose with Sharp",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse AI Output": {
+      "main": [
+        [
+          {
+            "node": "CometAPI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CometAPI": {
+      "main": [
+        [
+          {
+            "node": "Clean & Convert Base64",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clean & Convert Base64": {
+      "main": [
+        [
+          {
+            "node": "Compose with Sharp",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compose with Sharp": {
+      "main": [
+        [
+          {
+            "node": "FTP Upload",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "9afeab98-81fd-45b6-8169-bf0d5de097f4",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "1bd65a6ef48b94df42a552b6bde035c6a9fed4645978fb59911d29bd33bb3765"
+  },
+  "id": "xXbVm08KkJhviitS",
+  "tags": []
+}

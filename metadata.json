@@ -1,0 +1,5 @@
+{
+  "name": "Visual News Pro",
+  "description": "A high-performance web interface for generating viral news-style visual assets with professional overlays, powered by n8n and Gemini AI.",
+  "requestFramePermissions": []
+}

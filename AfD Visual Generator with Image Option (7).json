@@ -1,0 +1,447 @@
+{
+  "name": "AfD Visual Generator with Image Option",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "5001781d-c9be-4ef7-8635-4d241a6e8a9a",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        5696,
+        3408
+      ],
+      "id": "5fbbe2f9-d384-4104-8db1-eb5fac11ba98",
+      "name": "Webhook",
+      "webhookId": "5001781d-c9be-4ef7-8635-4d241a6e8a9a"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "ad64a02c-567a-4c2b-9e5c-6b8c9d0e1f2a",
+              "name": "logoOverlay",
+              "value": "={{ $json.body.logoOverlay || $json.body.logoOverlayBase64 }}",
+              "type": "string"
+            },
+            {
+              "id": "bd75b13d-678b-5d3c-af6d-7c9d0e1f2b3b",
+              "name": "chatInput",
+              "value": "={{ $json.body.chatInput }}",
+              "type": "string"
+            },
+            {
+              "id": "cd86c24e-789c-6e4d-bf7e-8d0e1f2b3c4c",
+              "name": "customImage",
+              "value": "={{ $json.body.customImage }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        5840,
+        3408
+      ],
+      "id": "060d5b7a-6e5a-4f6b-8732-2eb2c1b73a35",
+      "name": "GlobalData"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ !!$json.customImage }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        6016,
+        3408
+      ],
+      "id": "0f9791ba-a420-41ad-a12d-e4bb2a093b91",
+      "name": "Check Image"
+    },
+    {
+      "parameters": {
+        "jsCode": "const sharp = require('sharp');\n\n// Accessing properties from GlobalData directly\nconst input = $input.item.json;\nconst chatInput = input.chatInput;\nconst backgroundImage = input.customImage;\n\nlet base64Data = backgroundImage;\nif (backgroundImage.includes('base64,')) {\n  base64Data = backgroundImage.split('base64,')[1];\n}\n\nconst inputBuffer = Buffer.from(base64Data, 'base64');\nconst resizedBuffer = await sharp(inputBuffer)\n  .resize(960, 1200, { fit: 'cover', position: 'center' })\n  .png()\n  .toBuffer();\n\nconst timestamp = Date.now();\n\nreturn [{\n  json: {\n    success: true,\n    fileName: `news_image_${timestamp}.png`,\n    chatInput: chatInput,\n    userProvided: true,\n    logoOverlay: input.logoOverlay // Carry it forward\n  },\n  binary: {\n    data: {\n      data: resizedBuffer.toString('base64'),\n      mimeType: 'image/png',\n      fileExtension: 'png',\n      fileName: `news_image_${timestamp}.png`\n    }\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        6256,
+        3216
+      ],
+      "id": "48ea715d-4db2-4d5a-9e5a-47580fa70910",
+      "name": "Resize User Image"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.chatInput }}",
+        "options": {
+          "systemMessage": "{\n  \"name\": \"AfD_Style_Visual_Generator\",\n  \"description\": \"Generates viral visual assets.\",\n  \"instructions\": {\n    \"critical_protocol\": {\n      \"SYSTEM_MODE\": \"JSON_GENERATION\",\n      \"RULE\": \"Output must be valid JSON.\"\n    },\n    \"generation_steps\": {\n      \"step_1_image_prompt\": {\n        \"instruction\": \"Generate a detailed natural language description in English. Full frame composition, heavy dark vignetting at the bottom.\"\n      },\n      \"step_2_subline\": { \"role\": \"The Ticker\", \"grammar\": \"Complete sentence.\", \"length\": \"Max 6 words.\" },\n      \"step_3_headline\": { \"role\": \"The Punch\", \"formatting\": \"ALL CAPS. 2-3 lines.\" }\n    }\n  },\n  \"output\": {\n    \"format\": \"JSON\",\n    \"schema\": { \"imagePrompt\": \"string\", \"subline\": \"string\", \"headline\": \"string\" }\n  }\n}"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3,
+      "position": [
+        6256,
+        3616
+      ],
+      "id": "4f885069-59e2-4ba1-85e6-fb1e532d0b16",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-3-flash-preview",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        6304,
+        3840
+      ],
+      "id": "b3eeae4a-367e-4416-b24a-465343a3701e",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "PuuLZorZFogUlMjE",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.chatInput }}",
+        "options": {
+          "systemMessage": "{\n  \"name\": \"AfD_Style_Text_Generator\",\n  \"description\": \"Generates only subline and headline for user-provided images.\",\n  \"output\": {\n    \"format\": \"JSON\",\n    \"schema\": {\n      \"subline\": \"string\",\n      \"headline\": \"string\"\n    }\n  }\n}"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3,
+      "position": [
+        6480,
+        3216
+      ],
+      "id": "853451b5-a9db-4cd0-8990-42da42b66f0e",
+      "name": "AI Agent Text Only"
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-3-flash-preview",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        6512,
+        2992
+      ],
+      "id": "901cd19b-0721-4863-a017-2eb2c1b73a35",
+      "name": "Google Gemini Chat Model Text",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "PuuLZorZFogUlMjE",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const agentOutput = $input.item.json.output;\nconst resizeNode = $('Resize User Image').item;\nconst logoOverlay = resizeNode.json.logoOverlay;\n\nlet jsonStr = agentOutput;\nconst jsonMatch = agentOutput.match(/```json\\n?([\\s\\S]*?)\\n?```/);\nif (jsonMatch) {\n  jsonStr = jsonMatch[1].trim();\n} else {\n  const rawMatch = agentOutput.match(/\\{[\\s\\S]*\\}/);\n  if (rawMatch) {\n    jsonStr = rawMatch[0];\n  }\n}\n\nconst parsed = JSON.parse(jsonStr);\n\nreturn [{\n  json: {\n    subline: parsed.subline,\n    headline: parsed.headline,\n    fileName: resizeNode.json.fileName,\n    logoOverlay: logoOverlay\n  },\n  binary: resizeNode.binary\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        6784,
+        3216
+      ],
+      "id": "5dcc15db-ca0c-44fc-bad7-3873b4ca5a5b",
+      "name": "Parse Text Only"
+    },
+    {
+      "parameters": {
+        "jsCode": "const agentOutput = $input.item.json.output;\n\n// Reach back to the Master Set node for consistency in n8n v2\nconst global = $('GlobalData').item.json;\nconst logoOverlay = global.logoOverlay;\n\nlet jsonStr = agentOutput;\nconst jsonMatch = agentOutput.match(/```json\\n?([\\s\\S]*?)\\n?```/);\nif (jsonMatch) {\n  jsonStr = jsonMatch[1].trim();\n} else {\n  const rawMatch = agentOutput.match(/\\{[\\s\\S]*\\}/);\n  if (rawMatch) {\n    jsonStr = rawMatch[0];\n  }\n}\n\nconst parsed = JSON.parse(jsonStr);\n\nreturn [{\n  json: {\n    ...parsed,\n    logoOverlay: logoOverlay\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        6512,
+        3616
+      ],
+      "id": "e2b739cb-816d-4932-99a5-ded844bcb3d6",
+      "name": "Parse AI Output"
+    },
+    {
+      "parameters": {
+        "model": "gemini-2.5-flash-image",
+        "messages": {
+          "values": [
+            {
+              "content": "={{ $json.imagePrompt }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "@cometapi-dev/n8n-nodes-cometapi.cometApi",
+      "typeVersion": 1,
+      "position": [
+        6704,
+        3616
+      ],
+      "id": "3d9f77d7-efa1-4f6b-b60c-38398f8faed2",
+      "name": "CometAPI",
+      "credentials": {
+        "cometApi": {
+          "id": "7MBy3HxloEQJEgl2",
+          "name": "CometAPI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const content = $input.item.json.choices[0].message.content;\nconst parseNode = $('Parse AI Output').item;\n\nconst regex = /data:image\\/[a-zA-Z]+;base64,([a-zA-Z0-9+/=\\r\\n]+)/;\nconst match = content.match(regex);\n\nif (!match || !match[1]) {\n  throw new Error('No valid Base64 image found in CometAPI output.');\n}\n\nconst cleanBase64 = match[1].replace(/\\s/g, '');\nconst timestamp = Date.now();\n\nreturn [{\n  json: {\n    success: true,\n    fileName: `news_image_${timestamp}.png`,\n    headline: parseNode.json.headline,\n    subline: parseNode.json.subline,\n    logoOverlay: parseNode.json.logoOverlay\n  },\n  binary: {\n    data: {\n      data: cleanBase64,\n      mimeType: 'image/png',\n      fileExtension: 'png',\n      fileName: `news_image_${timestamp}.png`\n    }\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        6912,
+        3616
+      ],
+      "id": "0a863f97-ddb0-4226-83de-29b5a27397b0",
+      "name": "Clean & Convert Base64"
+    },
+    {
+      "parameters": {
+        "jsCode": "const sharp = require('sharp');\nconst opentype = require('opentype.js');\n\nconst OUTPUT_WIDTH = 960;\nconst OUTPUT_HEIGHT = 1200;\nconst DEFAULT_LOGO_URL = 'https://n8n.mariohau.de/images/logo_overlay.png';\n\nconst FONT_PATH = '/usr/share/fonts/truetype/barlow/BarlowCondensed-ExtraBoldItalic.ttf';\n\nconst SCREEN_PADDING = 50;\nconst BOTTOM_CLEARANCE = 210;\nconst MAX_TEXT_WIDTH = OUTPUT_WIDTH - (SCREEN_PADDING * 2);\nconst BOX_PADDING = 8;\nconst BOX_RADIUS = 10;\n\nconst HEADLINE_SIZE_MAX = 145;\nconst HEADLINE_SIZE_MIN = 60;\n\nconst inputJson = $input.item.json;\n\nconst sublineRaw = inputJson.subline || 'BREAKING NEWS:';\nconst headlineRaw = inputJson.headline || 'HEADLINE HERE';\n\nconst subline = sublineRaw.toUpperCase();\nconst headline = headlineRaw.toUpperCase().replace(/\\n/g, ' ');\n\nlet font;\ntry {\n    font = opentype.loadSync(FONT_PATH);\n} catch (e) {\n    throw new Error(`Font not found: ${FONT_PATH}`);\n}\n\nfunction getTextBoundingBox(text, fontSize) {\n    const path = font.getPath(text, 0, 0, fontSize);\n    return path.getBoundingBox();\n}\n\nfunction measureTextWidth(text, fontSize) {\n    const bbox = getTextBoundingBox(text, fontSize);\n    return bbox.x2 - bbox.x1;\n}\n\nfunction getReferenceBoundingBox(fontSize) {\n    const referenceText = \"ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789\";\n    return getTextBoundingBox(referenceText, fontSize);\n}\n\nfunction calculateHeadlineLayout(text, maxWidth) {\n    let fontSize = HEADLINE_SIZE_MAX;\n    const words = text.split(' ');\n\n    while (fontSize >= HEADLINE_SIZE_MIN) {\n        const longestWordPx = Math.max(...words.map(w => measureTextWidth(w, fontSize)));\n        if (longestWordPx > maxWidth) {\n            fontSize -= 5;\n            continue;\n        }\n\n        const lines = wrapText(words, fontSize, maxWidth);\n\n        if (lines.length <= 3) return { fontSize, lines };\n        if (lines.length <= 4 && fontSize < 95) return { fontSize, lines };\n\n        fontSize -= 5;\n    }\n    return { fontSize: HEADLINE_SIZE_MIN, lines: wrapText(words, HEADLINE_SIZE_MIN, maxWidth) };\n}\n\nfunction wrapText(words, fontSize, maxWidth) {\n    let lines = [];\n    let currentLine = words[0];\n\n    for (let i = 1; i < words.length; i++) {\n        const word = words[i];\n        const projectedWidth = measureTextWidth(currentLine + \" \" + word, fontSize);\n\n        if (projectedWidth <= maxWidth) {\n            currentLine += \" \" + word;\n        } else {\n            lines.push(currentLine);\n            currentLine = word;\n        }\n    }\n    lines.push(currentLine);\n    return lines;\n}\n\nconst hlLayout = calculateHeadlineLayout(headline, MAX_TEXT_WIDTH);\nconst hlSize = hlLayout.fontSize;\nconst hlLines = hlLayout.lines;\n\nlet slSize = 50;\n\nlet slBBox = getTextBoundingBox(subline, slSize);\nlet slTextWidthRaw = slBBox.x2 - slBBox.x1;\n\nif (slTextWidthRaw > MAX_TEXT_WIDTH) {\n    slSize = Math.floor(slSize * (MAX_TEXT_WIDTH / slTextWidthRaw));\n}\n\nslBBox = getTextBoundingBox(subline, slSize);\nconst refBBox = getReferenceBoundingBox(slSize);\n\nconst textWidth = slBBox.x2 - slBBox.x1;\nconst textHeight = refBBox.y2 - refBBox.y1;\nconst textOffsetX = slBBox.x1;\nconst textOffsetY = refBBox.y1;\n\nconst boxWidth = textWidth + (BOX_PADDING * 2);\nconst boxHeight = textHeight + (BOX_PADDING * 2);\n\nconst centerX = OUTPUT_WIDTH / 2;\nconst lineHeight = hlSize * 0.95;\n\nconst textAreaBottomLimit = OUTPUT_HEIGHT - BOTTOM_CLEARANCE;\n\nconst hlStartY = textAreaBottomLimit - (lineHeight * 0.5) - ((hlLines.length - 1) * lineHeight);\n\nconst boxCenterY = hlStartY - lineHeight;\nconst boxY = boxCenterY - (boxHeight / 2);\n\nconst boxX = centerX - (boxWidth / 2);\n\nconst textX = boxX + BOX_PADDING - textOffsetX;\nconst textY = boxY + BOX_PADDING - textOffsetY;\n\nfunction escapeXml(text) {\n    return text\n        .replace(/&/g, '&amp;')\n        .replace(/</g, '&lt;')\n        .replace(/>/g, '&gt;')\n        .replace(/\"/g, '&quot;')\n        .replace(/'/g, '&apos;');\n}\n\nlet svgContent = '';\n\nsvgContent += `\n    <rect \n        x=\"${boxX}\" \n        y=\"${boxY}\" \n        width=\"${boxWidth}\" \n        height=\"${boxHeight}\" \n        fill=\"#E2001A\" \n        rx=\"${BOX_RADIUS}\" \n        ry=\"${BOX_RADIUS}\"\n    />\n`;\n\nsvgContent += `\n    <text \n        x=\"${textX}\" \n        y=\"${textY}\" \n        font-family=\"Barlow Condensed ExtraBold\" \n        font-weight=\"800\"\n        font-style=\"italic\"\n        font-size=\"${slSize}\" \n        fill=\"white\"\n    >${escapeXml(subline)}</text>\n`;\n\nhlLines.forEach((line, i) => {\n    const y = hlStartY + (i * lineHeight);\n    svgContent += `\n        <text \n            x=\"${centerX}\" \n            y=\"${y}\" \n            text-anchor=\"middle\" \n            dominant-baseline=\"central\" \n            font-family=\"Barlow Condensed ExtraBold\" \n            font-size=\"${hlSize}\" \n            font-style=\"italic\" \n            font-weight=\"800\" \n            fill=\"white\" \n            filter=\"url(#shadow)\"\n        >${escapeXml(line)}</text>\n    `;\n});\n\nconst finalSvg = `\n<svg width=\"${OUTPUT_WIDTH}\" height=\"${OUTPUT_HEIGHT}\" xmlns=\"http://www.w3.org/2000/svg\">\n  <defs>\n    <filter id=\"shadow\" x=\"-50%\" y=\"-50%\" width=\"200%\" height=\"200%\">\n      <feDropShadow dx=\"0\" dy=\"4\" stdDeviation=\"6\" flood-color=\"black\" flood-opacity=\"0.8\"/>\n    </filter>\n  </defs>\n  ${svgContent}\n</svg>\n`;\n\ntry {\n    const inputBuffer = await this.helpers.getBinaryDataBuffer(0, 'data');\n    \n    // Standard discovery via GlobalData node\n    let logoPayload = inputJson.logoOverlay;\n    let sourceNode = \"Current Item\";\n    \n    if (!logoPayload) {\n        try {\n             const global = $('GlobalData').item.json;\n             logoPayload = global.logoOverlay;\n             sourceNode = \"GlobalData Node Access (v2 Corrected)\";\n        } catch (e) {\n            try {\n                logoPayload = $('Webhook').item.json.body.logoOverlay || $('Webhook').item.json.body.logoOverlayBase64;\n                sourceNode = \"Webhook Direct Access (Fallback)\";\n            } catch (ev) {}\n        }\n    }\n\n    let logoBuffer;\n    if (logoPayload) {\n        if (logoPayload.startsWith('data:image')) {\n            const b64 = logoPayload.split('base64,')[1];\n            logoBuffer = Buffer.from(b64, 'base64');\n        } else {\n          try {\n            logoBuffer = await this.helpers.httpRequest({\n                method: 'GET', \n                url: logoPayload,\n                encoding: 'arraybuffer'\n            });\n          } catch (err) {\n             logoPayload = null; \n          }\n        }\n    }\n    \n    if (!logoBuffer) {\n        logoBuffer = await this.helpers.httpRequest({\n            method: 'GET',\n            url: DEFAULT_LOGO_URL,\n            encoding: 'arraybuffer'\n        });\n    }\n\n    const finalBuffer = await sharp(inputBuffer)\n        .resize(OUTPUT_WIDTH, OUTPUT_HEIGHT, { fit: 'cover', position: 'center' })\n        .composite([\n            { input: Buffer.from(logoBuffer), top: 0, left: 0 },\n            { input: Buffer.from(finalSvg), top: 0, left: 0 }\n        ])\n        .png()\n        .toBuffer();\n\n    const finalFileName = (inputJson.fileName || 'image.png').replace('news_image_', 'news_final_');\n\n    return {\n        json: {\n            ...inputJson,\n            composed: true,\n            debug: {\n                resolvedLogoFrom: sourceNode,\n                hasLogoPayload: !!logoPayload,\n                logoPayloadPreview: logoPayload ? logoPayload.substring(0, 30) + \"...\" : \"null\"\n            }\n        },\n        binary: {\n            data: {\n                data: finalBuffer.toString('base64'),\n                mimeType: 'image/png',\n                fileExtension: 'png',\n                fileName: finalFileName\n            }\n        }\n    };\n} catch (error) {\n    throw new Error(`Sharp Error: ${error.message}`);\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        7152,
+        3408
+      ],
+      "id": "8a35134d-222f-455c-90bd-57008e92eeaa",
+      "name": "Compose with Sharp"
+    },
+    {
+      "parameters": {
+        "operation": "upload",
+        "path": "={{ $json.fileName }}"
+      },
+      "type": "n8n-nodes-base.ftp",
+      "typeVersion": 1,
+      "position": [
+        7360,
+        3248
+      ],
+      "id": "953871e9-4f63-4949-8cf8-11abc5f89d56",
+      "name": "FTP Upload",
+      "credentials": {
+        "ftp": {
+          "id": "UTqgkrvEUHGe7ZyT",
+          "name": "FTP account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "binary",
+        "responseDataSource": "set",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        7344,
+        3568
+      ],
+      "id": "8bf880b0-e089-438a-aa4a-35a1652ac73a",
+      "name": "Respond to Webhook"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "GlobalData",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GlobalData": {
+      "main": [
+        [
+          {
+            "node": "Check Image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Image": {
+      "main": [
+        [
+          {
+            "node": "Resize User Image",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resize User Image": {
+      "main": [
+        [
+          {
+            "node": "AI Agent Text Only",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Parse AI Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent Text Only": {
+      "main": [
+        [
+          {
+            "node": "Parse Text Only",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model Text": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent Text Only",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Text Only": {
+      "main": [
+        [
+          {
+            "node": "Compose with Sharp",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse AI Output": {
+      "main": [
+        [
+          {
+            "node": "CometAPI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CometAPI": {
+      "main": [
+        [
+          {
+            "node": "Clean & Convert Base64",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clean & Convert Base64": {
+      "main": [
+        [
+          {
+            "node": "Compose with Sharp",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compose with Sharp": {
+      "main": [
+        [
+          {
+            "node": "FTP Upload",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "9afeab98-81fd-45b6-8169-bf0d5de097f4",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "1bd65a6ef48b94df42a552b6bde035c6a9fed4645978fb59911d29bd33bb3765"
+  },
+  "id": "xXbVm08KkJhviitS",
+  "tags": []
+}
